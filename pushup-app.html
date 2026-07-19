@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>毎日100回腕立てチャレンジ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #F6F4EC; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef } = React;
+
+
+// ---- storage shim: この端末のブラウザに保存(localStorage) ----
+window.storage = {
+  async get(key) {
+    const v = localStorage.getItem("app-" + key);
+    if (v === null) throw new Error("not found");
+    return { key, value: v };
+  },
+  async set(key, value) {
+    localStorage.setItem("app-" + key, value);
+    return { key, value };
+  },
+};
+
+
+// ---- inline icons (lucide paths) ----
+function makeIcon(svgInner) {
+  return function Icon({ size = 24, strokeWidth = 2, color = "currentColor", fill = "none" }) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color}
+        strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+        dangerouslySetInnerHTML={{ __html: svgInner }} />
+    );
+  };
+}
+const Check = makeIcon('<polyline points="20 6 9 17 4 12"/>');
+const Plus = makeIcon('<path d="M5 12h14"/><path d="M12 5v14"/>');
+const Trash2 = makeIcon('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>');
+const Settings = makeIcon('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>');
+const X = makeIcon('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
+const Flame = makeIcon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>');
+const Trophy = makeIcon('<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>');
+const Dumbbell = makeIcon('<path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>');
+const TimerReset = makeIcon('<path d="M10 2h4"/><path d="M12 14v-4"/><path d="M4 13a8 8 0 0 1 8-7 8 8 0 1 1-5.3 14L4 17.6"/><path d="M9 17H4v5"/>');
+const Zap = makeIcon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>');
+
+// ---------- helpers ----------
+const keyOf = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayKey = () => keyOf(new Date());
+const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"];
+
+// 月曜はじまりの週の日付キー
+const weekKeys = (offsetWeeks = 0) => {
+  const d = new Date();
+  const day = (d.getDay() + 6) % 7; // 月=0 … 日=6
+  d.setDate(d.getDate() - day + offsetWeeks * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return keyOf(x);
+  });
+};
+
+const CONFIG_KEY = "pushup-config-v1";
+const LOG_KEY = "pushup-log-v1";
+const DEFAULT_SETS = [40, 30, 30];
+const DEFAULT_WEEK_GOAL = 5;
+const DEFAULT_REP_GOAL = 500;
+const REST_SECONDS = 90;
+
+const SHOUTS = [
+  "🔥 いいぞ!!その調子だ!!",
+  "💥 効いてる効いてる!!最高だ!!",
+  "⚡ まだまだいける!!限界の先へ!!",
+  "🚀 昨日の自分、置き去りだ!!",
+  "👊 その一回が未来を変える!!",
+  "🦾 鬼パンプ!!キレてる!!",
+];
+
+function App() {
+  const [sets, setSets] = useState(DEFAULT_SETS);
+  const [weekGoal, setWeekGoal] = useState(DEFAULT_WEEK_GOAL);
+  const [repGoal, setRepGoal] = useState(DEFAULT_REP_GOAL);
+  const [log, setLog] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [rest, setRest] = useState(0);
+  const [shout, setShout] = useState("");
+  const [newSet, setNewSet] = useState("");
+  const [repGoalInput, setRepGoalInput] = useState(String(DEFAULT_REP_GOAL));
+  const timerRef = useRef(null);
+  const shoutRef = useRef(null);
+
+  const tKey = todayKey();
+  const today = log[tKey] || { done: sets.map(() => false) };
+  const doneArr = sets.map((_, i) => !!today.done?.[i]);
+
+  // ---------- load ----------
+  useEffect(() => {
+    (async () => {
+      try {
+        const c = await window.storage.get(CONFIG_KEY);
+        if (c && c.value) {
+          const p = JSON.parse(c.value);
+          if (p.sets?.length) setSets(p.sets);
+          if (p.weekGoal) setWeekGoal(p.weekGoal);
+          if (p.repGoal) { setRepGoal(p.repGoal); setRepGoalInput(String(p.repGoal)); }
+        }
+      } catch (e) { /* まだ保存なし */ }
+      try {
+        const l = await window.storage.get(LOG_KEY);
+        if (l && l.value) setLog(JSON.parse(l.value));
+      } catch (e) { /* まだ保存なし */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  // ---------- save ----------
+  const saveConfig = useCallback(async (s, g, rg) => {
+    try {
+      await window.storage.set(CONFIG_KEY, JSON.stringify({ sets: s, weekGoal: g, repGoal: rg }));
+    } catch (e) { console.error("設定の保存に失敗", e); }
+  }, []);
+  const saveLog = useCallback(async (next) => {
+    try {
+      await window.storage.set(LOG_KEY, JSON.stringify(next));
+    } catch (e) { console.error("記録の保存に失敗", e); }
+  }, []);
+
+  // ---------- rest timer ----------
+  useEffect(() => {
+    if (rest <= 0) { clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => setRest((r) => (r <= 1 ? 0 : r - 1)), 1000);
+    return () => clearInterval(timerRef.current);
+  }, [rest > 0]);
+
+  // ---------- actions ----------
+  const fireShout = () => {
+    clearTimeout(shoutRef.current);
+    setShout(SHOUTS[Math.floor(Math.random() * SHOUTS.length)]);
+    shoutRef.current = setTimeout(() => setShout(""), 2500);
+  };
+
+  const toggleSet = (i) => {
+    const next = [...doneArr];
+    const turningOn = !next[i];
+    next[i] = turningOn;
+    const nextLog = { ...log, [tKey]: { done: next } };
+    setLog(nextLog);
+    saveLog(nextLog);
+    const allDone = next.every(Boolean);
+    if (turningOn && !allDone) { setRest(REST_SECONDS); fireShout(); }
+    if (allDone) { setRest(0); setShout(""); }
+  };
+
+  const addSet = () => {
+    const n = parseInt(newSet, 10);
+    if (!n || n <= 0) return;
+    const nextSets = [...sets, n];
+    setSets(nextSets);
+    saveConfig(nextSets, weekGoal, repGoal);
+    setNewSet("");
+  };
+  const removeSet = (i) => {
+    if (sets.length <= 1) return;
+    const nextSets = sets.filter((_, idx) => idx !== i);
+    setSets(nextSets);
+    saveConfig(nextSets, weekGoal, repGoal);
+  };
+  const changeGoal = (g) => { setWeekGoal(g); saveConfig(sets, g, repGoal); };
+  const applyRepGoal = () => {
+    const n = parseInt(repGoalInput, 10);
+    if (!n || n <= 0) return;
+    setRepGoal(n);
+    saveConfig(sets, weekGoal, n);
+  };
+
+  // ---------- derived ----------
+  const dayReps = (key) => {
+    const d = log[key];
+    if (!d?.done) return 0;
+    return d.done.reduce((a, on, i) => a + (on ? (sets[i] || 0) : 0), 0);
+  };
+  const isDayComplete = (key) => {
+    const d = log[key];
+    if (!d?.done) return false;
+    const count = d.done.filter(Boolean).length;
+    return count >= (d.done.length || sets.length) && count > 0;
+  };
+
+  const total = sets.reduce((a, b) => a + b, 0);
+  const doneReps = sets.reduce((a, b, i) => a + (doneArr[i] ? b : 0), 0);
+  const doneSets = doneArr.filter(Boolean).length;
+  const todayComplete = doneSets === sets.length;
+  const progress = total ? doneReps / total : 0;
+
+  const thisWeek = weekKeys(0);
+  const todayIdx = thisWeek.indexOf(tKey);
+  const weekDone = thisWeek.filter(isDayComplete).length;
+  const weekReps = thisWeek.reduce((a, k) => a + dayReps(k), 0);
+  const daysCleared = weekDone >= weekGoal;
+  const repsCleared = weekReps >= repGoal;
+  const weekAchieved = daysCleared || repsCleared; // 週5日 or 週500回、どちらかでクリア!
+
+  const weekRepsOf = (w) => weekKeys(w).reduce((a, k) => a + dayReps(k), 0);
+  const weekClearedOf = (w) =>
+    weekKeys(w).filter(isDayComplete).length >= weekGoal || weekRepsOf(w) >= repGoal;
+
+  // 連続クリア週
+  let weekStreak = 0;
+  for (let w = 0; ; w--) {
+    if (weekClearedOf(w)) weekStreak++;
+    else if (w === 0) { /* 今週は進行中でもOK */ }
+    else break;
+    if (w < -520) break;
+  }
+
+  // 過去4週
+  const pastWeeks = [-4, -3, -2, -1].map((w) => ({
+    w,
+    days: weekKeys(w).filter(isDayComplete).length,
+    reps: weekRepsOf(w),
+    ok: weekClearedOf(w),
+  }));
+
+  // 累計
+  const totalDays = Object.keys(log).filter(isDayComplete).length;
+  const totalReps = Object.keys(log).reduce((sum, k) => sum + dayReps(k), 0);
+
+  const now = new Date();
+  const dateLabel = `${now.getMonth() + 1}月${now.getDate()}日(${["日","月","火","水","木","金","土"][now.getDay()]})`;
+
+  if (!loaded) {
+    return (
+      <div style={st.page}>
+        <div style={{ ...st.card, textAlign: "center", color: "#8A8578" }}>ウォームアップ中…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={st.page}>
+      <style>{`
+        @keyframes rise { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+        @keyframes pop { 0% { transform: scale(.9);} 60% { transform: scale(1.08);} 100% { transform: scale(1);} }
+        @keyframes shoutIn { 0% { opacity:0; transform: translateY(6px) scale(.95);} 100% { opacity:1; transform:none;} }
+        button { font-family: inherit; }
+        input { font-family: inherit; }
+        *:focus-visible { outline: 2px solid #C15A2E; outline-offset: 2px; }
+      `}</style>
+
+      {/* header */}
+      <header style={st.header}>
+        <div>
+          <div style={st.eyebrow}>🔥 限界を超えろ!毎日100回チャレンジ</div>
+          <div style={st.dateText}>{dateLabel}</div>
+        </div>
+        <button aria-label="設定" onClick={() => setShowSettings(true)} style={st.iconBtn}>
+          <Settings size={20} strokeWidth={1.8} />
+        </button>
+      </header>
+
+      {/* today hero */}
+      <section style={st.hero}>
+        <div style={st.heroLabel}>
+          <Dumbbell size={14} strokeWidth={2} />
+          今日のバトル — 腕立て100回
+        </div>
+        <div style={st.heroNum}>
+          <span style={st.heroDone}>{doneReps}</span>
+          <span style={st.heroTotal}> / {total} 回</span>
+        </div>
+        <div style={st.heroTrack}>
+          <div style={{ ...st.heroFill, width: `${progress * 100}%` }} />
+        </div>
+
+        <div style={st.setRow}>
+          {sets.map((n, i) => {
+            const on = doneArr[i];
+            return (
+              <button
+                key={i}
+                onClick={() => toggleSet(i)}
+                style={{
+                  ...st.setBtn,
+                  background: on ? "#F6F4EC" : "rgba(246,244,236,.12)",
+                  color: on ? "#C15A2E" : "#F6F4EC",
+                  animation: on ? "pop .25s ease" : "none",
+                }}
+              >
+                <span style={st.setLabel}>SET {i + 1}</span>
+                <span style={st.setReps}>{n}回</span>
+                {on && <Check size={16} strokeWidth={3} />}
+              </button>
+            );
+          })}
+        </div>
+
+        {shout && !todayComplete && (
+          <div style={st.shoutBox}>{shout}</div>
+        )}
+
+        {rest > 0 && !todayComplete && (
+          <div style={st.restBox}>
+            <TimerReset size={16} strokeWidth={2} />
+            <span>回復タイム {Math.floor(rest / 60)}:{String(rest % 60).padStart(2, "0")} — 次で決める!!</span>
+            <button onClick={() => setRest(0)} style={st.skipBtn}>行くぜ!!</button>
+          </div>
+        )}
+
+        {todayComplete && (
+          <div style={st.heroDoneBanner}>💪 100回制覇!!今日のお前は最強だ!!</div>
+        )}
+      </section>
+
+      {/* this week */}
+      <section style={st.card}>
+        <div style={st.cardHead}>
+          <span style={st.cardTitle}>今週のミッション</span>
+          {weekAchieved && <span style={st.clearBadge}>CLEAR!!</span>}
+        </div>
+        <p style={st.sectionHint}>
+          <b>週{weekGoal}日</b> or <b>合計{repGoal}回</b>、どっちか達成でクリア!休息日も戦略のうちだ。
+        </p>
+
+        {/* 日数ゲージ */}
+        <div style={st.gaugeRow}>
+          <span style={st.gaugeLabel}>日数</span>
+          <div style={st.gaugeTrack}>
+            <div style={{ ...st.gaugeFill, width: `${Math.min(weekDone / weekGoal, 1) * 100}%`, background: daysCleared ? "#4C8C5C" : "#C15A2E" }} />
+          </div>
+          <span style={{ ...st.gaugeVal, color: daysCleared ? "#4C8C5C" : "#26251E" }}>
+            {weekDone}/{weekGoal}日{daysCleared && " ✓"}
+          </span>
+        </div>
+        {/* 回数ゲージ */}
+        <div style={st.gaugeRow}>
+          <span style={st.gaugeLabel}>回数</span>
+          <div style={st.gaugeTrack}>
+            <div style={{ ...st.gaugeFill, width: `${Math.min(weekReps / repGoal, 1) * 100}%`, background: repsCleared ? "#4C8C5C" : "#C15A2E" }} />
+          </div>
+          <span style={{ ...st.gaugeVal, color: repsCleared ? "#4C8C5C" : "#26251E" }}>
+            {weekReps}/{repGoal}回{repsCleared && " ✓"}
+          </span>
+        </div>
+
+        <div style={st.weekRow}>
+          {thisWeek.map((k, i) => {
+            const done = isDayComplete(k);
+            const isToday = i === todayIdx;
+            const isFuture = i > todayIdx;
+            return (
+              <div key={k} style={st.weekCol}>
+                <div
+                  style={{
+                    ...st.dayCircle,
+                    background: done ? "#C15A2E" : isFuture ? "#F3F0E7" : "#E7E3D8",
+                    border: isToday ? "2px solid #C15A2E" : "2px solid transparent",
+                  }}
+                >
+                  {done && <Check size={14} strokeWidth={3} color="#fff" />}
+                </div>
+                <span style={{ ...st.weekWd, fontWeight: isToday ? 700 : 400 }}>{WEEKDAYS[i]}</span>
+              </div>
+            );
+          })}
+        </div>
+        {weekAchieved && (
+          <div style={st.weekBanner}>
+            <Trophy size={16} strokeWidth={2} />
+            今週のミッション完遂!!ここからは全部ボーナスステージだ!!
+          </div>
+        )}
+      </section>
+
+      {/* stats */}
+      <section style={st.statsRow}>
+        <div style={st.statBox}>
+          <Flame size={16} strokeWidth={2} color={weekStreak > 0 ? "#C15A2E" : "#B9B4A6"} />
+          <div style={st.statNum}>{weekStreak}</div>
+          <div style={st.statLabel}>連続クリア週</div>
+        </div>
+        <div style={st.statBox}>
+          <Zap size={16} strokeWidth={2} color="#C99A2E" />
+          <div style={st.statNum}>{totalDays}</div>
+          <div style={st.statLabel}>累計バトル日</div>
+        </div>
+        <div style={st.statBox}>
+          <Dumbbell size={16} strokeWidth={2} color="#5B5749" />
+          <div style={st.statNum}>{totalReps.toLocaleString()}</div>
+          <div style={st.statLabel}>生涯プッシュ数</div>
+        </div>
+      </section>
+
+      {/* past weeks */}
+      <section style={st.card}>
+        <div style={st.cardTitle}>戦いの記録(過去4週)</div>
+        <div style={st.pastRow}>
+          {pastWeeks.map(({ w, days, reps, ok }) => (
+            <div key={w} style={st.pastCol}>
+              <div style={{ ...st.pastBar, height: 8 + Math.min(reps / Math.max(repGoal, 1), 1.2) * 52, background: ok ? "#C15A2E" : "#C9C4B4" }} />
+              <span style={st.pastDays}>{reps}回</span>
+              <span style={st.pastSub}>{days}日</span>
+              <span style={st.pastLabel}>{-w}週前</span>
+            </div>
+          ))}
+          <div style={st.pastCol}>
+            <div style={{ ...st.pastBar, height: 8 + Math.min(weekReps / Math.max(repGoal, 1), 1.2) * 52, background: weekAchieved ? "#C15A2E" : "#8FA3C8" }} />
+            <span style={st.pastDays}>{weekReps}回</span>
+            <span style={st.pastSub}>{weekDone}日</span>
+            <span style={{ ...st.pastLabel, fontWeight: 700 }}>今週</span>
+          </div>
+        </div>
+      </section>
+
+      <footer style={st.footer}>限界は自分で決めるな。今日も一回、また一回。🔥</footer>
+
+      {/* settings */}
+      {showSettings && (
+        <div style={st.overlay} onClick={() => setShowSettings(false)}>
+          <div style={st.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={st.modalHead}>
+              <span style={st.cardTitle}>作戦変更</span>
+              <button aria-label="閉じる" onClick={() => setShowSettings(false)} style={st.iconBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={st.settingSection}>セット構成(合計 {total}回)</div>
+            {sets.map((n, i) => (
+              <div key={i} style={st.editRow}>
+                <span style={st.editText}>SET {i + 1} — {n}回</span>
+                <button aria-label="削除" onClick={() => removeSet(i)} style={st.trashBtn}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <div style={st.addRow}>
+              <input
+                value={newSet}
+                onChange={(e) => setNewSet(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && addSet()}
+                placeholder="回数を入力(例: 30)"
+                inputMode="numeric"
+                style={st.input}
+              />
+              <button onClick={addSet} style={st.addBtn}><Plus size={18} /></button>
+            </div>
+
+            <div style={st.settingSection}>週のクリア条件① 日数</div>
+            <div style={st.goalRow}>
+              {[3, 4, 5, 6, 7].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => changeGoal(g)}
+                  style={{
+                    ...st.goalBtn,
+                    background: g === weekGoal ? "#C15A2E" : "#FFFFFF",
+                    color: g === weekGoal ? "#fff" : "#26251E",
+                    borderColor: g === weekGoal ? "#C15A2E" : "#E7E3D8",
+                  }}
+                >
+                  {g}日
+                </button>
+              ))}
+            </div>
+
+            <div style={st.settingSection}>週のクリア条件② 合計回数</div>
+            <div style={st.addRow}>
+              <input
+                value={repGoalInput}
+                onChange={(e) => setRepGoalInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && applyRepGoal()}
+                inputMode="numeric"
+                style={st.input}
+              />
+              <button onClick={applyRepGoal} style={{ ...st.addBtn, fontSize: 13, fontWeight: 700 }}>設定</button>
+            </div>
+            <p style={st.hint}>①か②のどちらかを満たせば、その週はクリア扱いになります。</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- styles ----------
+const serif = `"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif`;
+const sans = `"Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", -apple-system, sans-serif`;
+
+const st = {
+  page: {
+    minHeight: "100vh", background: "#F6F4EC", color: "#26251E", fontFamily: sans,
+    maxWidth: 480, margin: "0 auto", padding: "20px 16px 40px", boxSizing: "border-box",
+  },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  eyebrow: { fontSize: 11, letterSpacing: "0.1em", color: "#A84B24", fontWeight: 700, marginBottom: 2 },
+  dateText: { fontFamily: serif, fontSize: 22, fontWeight: 600 },
+  iconBtn: { background: "transparent", border: "none", color: "#5B5749", cursor: "pointer", padding: 8, borderRadius: 8 },
+  hero: {
+    background: "linear-gradient(150deg, #D4703F 0%, #C15A2E 60%, #A84B24 100%)",
+    color: "#F6F4EC", borderRadius: 16, padding: "22px 20px", marginBottom: 14,
+    boxShadow: "0 6px 18px rgba(193,90,46,.28)",
+  },
+  heroLabel: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, letterSpacing: "0.12em", opacity: 0.9, marginBottom: 8, fontWeight: 700 },
+  heroNum: { marginBottom: 10 },
+  heroDone: { fontFamily: serif, fontSize: 44, fontWeight: 700, lineHeight: 1 },
+  heroTotal: { fontSize: 16, opacity: 0.85 },
+  heroTrack: { height: 8, background: "rgba(246,244,236,.25)", borderRadius: 4, overflow: "hidden", marginBottom: 16 },
+  heroFill: { height: "100%", background: "#F6F4EC", borderRadius: 4, transition: "width .3s ease" },
+  setRow: { display: "flex", gap: 8 },
+  setBtn: {
+    flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+    border: "none", borderRadius: 12, padding: "14px 8px", cursor: "pointer",
+    transition: "background .15s",
+  },
+  setLabel: { fontSize: 10, letterSpacing: "0.12em", opacity: 0.8, fontWeight: 700 },
+  setReps: { fontFamily: serif, fontSize: 20, fontWeight: 700 },
+  shoutBox: {
+    marginTop: 14, background: "rgba(246,244,236,.95)", color: "#A84B24",
+    borderRadius: 10, padding: "10px 14px", fontSize: 16, fontWeight: 800,
+    textAlign: "center", animation: "shoutIn .25s ease",
+  },
+  restBox: {
+    marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+    background: "rgba(246,244,236,.15)", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 600,
+    flexWrap: "wrap",
+  },
+  skipBtn: {
+    background: "#F6F4EC", border: "none", color: "#C15A2E",
+    borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer",
+  },
+  heroDoneBanner: {
+    marginTop: 14, background: "#F6F4EC", color: "#C15A2E", borderRadius: 10,
+    padding: "12px 14px", fontSize: 16, fontFamily: serif, fontWeight: 800, textAlign: "center",
+    animation: "pop .3s ease",
+  },
+  card: { background: "#FFFFFF", border: "1px solid #E7E3D8", borderRadius: 16, padding: 18, marginBottom: 14 },
+  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cardTitle: { fontFamily: serif, fontSize: 16, fontWeight: 700 },
+  clearBadge: {
+    background: "#4C8C5C", color: "#fff", fontSize: 12, fontWeight: 800,
+    borderRadius: 999, padding: "4px 12px", letterSpacing: "0.08em",
+  },
+  sectionHint: { fontSize: 12, color: "#8A8578", margin: "6px 0 12px", lineHeight: 1.6 },
+  gaugeRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  gaugeLabel: { fontSize: 11, color: "#8A8578", width: 30, flexShrink: 0, fontWeight: 700 },
+  gaugeTrack: { flex: 1, height: 10, background: "#EFECE2", borderRadius: 5, overflow: "hidden" },
+  gaugeFill: { height: "100%", borderRadius: 5, transition: "width .3s ease" },
+  gaugeVal: { fontSize: 12, fontWeight: 700, width: 86, textAlign: "right", flexShrink: 0 },
+  weekRow: { display: "flex", justifyContent: "space-between", marginTop: 14 },
+  weekCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5 },
+  dayCircle: {
+    width: 34, height: 34, borderRadius: "50%", boxSizing: "border-box",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  weekWd: { fontSize: 11, color: "#8A8578" },
+  weekBanner: {
+    marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+    background: "#EDF4EE", color: "#3D7049", borderRadius: 10, padding: "10px 14px",
+    fontSize: 13, fontWeight: 800,
+  },
+  statsRow: { display: "flex", gap: 10, marginBottom: 14 },
+  statBox: {
+    flex: 1, background: "#FFFFFF", border: "1px solid #E7E3D8", borderRadius: 14,
+    padding: "12px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+  },
+  statNum: { fontFamily: serif, fontSize: 20, fontWeight: 700 },
+  statLabel: { fontSize: 10, color: "#8A8578", letterSpacing: "0.06em", fontWeight: 700 },
+  pastRow: { display: "flex", justifyContent: "space-around", alignItems: "flex-end", marginTop: 14, minHeight: 110 },
+  pastCol: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 2 },
+  pastBar: { width: 26, borderRadius: 6, transition: "height .3s ease" },
+  pastDays: { fontSize: 11, color: "#5B5749", fontWeight: 700, marginTop: 3 },
+  pastSub: { fontSize: 10, color: "#8A8578" },
+  pastLabel: { fontSize: 10, color: "#8A8578" },
+  footer: { textAlign: "center", fontSize: 12, color: "#A84B24", fontFamily: serif, fontWeight: 700, marginTop: 8 },
+  overlay: {
+    position: "fixed", inset: 0, background: "rgba(38,37,30,.4)",
+    display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50,
+  },
+  modal: {
+    background: "#F6F4EC", width: "100%", maxWidth: 480, maxHeight: "85vh",
+    overflowY: "auto", borderRadius: "20px 20px 0 0", padding: "18px 18px 30px", boxSizing: "border-box",
+  },
+  modalHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  settingSection: { fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", color: "#5B5749", margin: "16px 0 8px" },
+  editRow: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+    background: "#FFFFFF", border: "1px solid #E7E3D8", borderRadius: 10, padding: "10px 12px", marginBottom: 6,
+  },
+  editText: { fontSize: 14 },
+  trashBtn: { background: "transparent", border: "none", color: "#B05A4A", cursor: "pointer", padding: 6, flexShrink: 0 },
+  addRow: { display: "flex", gap: 8, marginTop: 4 },
+  input: {
+    flex: 1, border: "1px solid #E7E3D8", borderRadius: 10, padding: "10px 12px",
+    fontSize: 14, background: "#FFFFFF", color: "#26251E",
+  },
+  addBtn: {
+    background: "#C15A2E", color: "#fff", border: "none", borderRadius: 10,
+    padding: "0 14px", cursor: "pointer", display: "flex", alignItems: "center",
+  },
+  goalRow: { display: "flex", gap: 8 },
+  goalBtn: {
+    flex: 1, border: "1px solid", borderRadius: 10, padding: "10px 0",
+    fontSize: 14, fontWeight: 700, cursor: "pointer",
+  },
+  hint: { fontSize: 12, color: "#8A8578", margin: "12px 0 0", lineHeight: 1.6 },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
