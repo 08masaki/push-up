@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>毎日100回腕立てチャレンジ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: #0C0B0A; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef } = React;
+
+
+window.storage = {
+  async get(key) {
+    const v = localStorage.getItem("app-" + key);
+    if (v === null) throw new Error("not found");
+    return { key, value: v };
+  },
+  async set(key, value) {
+    localStorage.setItem("app-" + key, value);
+    return { key, value };
+  },
+};
+
+
+function makeIcon(svgInner) {
+  return function Icon({ size = 24, strokeWidth = 2, color = "currentColor", fill = "none" }) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color}
+        strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+        dangerouslySetInnerHTML={{ __html: svgInner }} />
+    );
+  };
+}
+const Check = makeIcon('<polyline points="20 6 9 17 4 12"/>');
+const Plus = makeIcon('<path d="M5 12h14"/><path d="M12 5v14"/>');
+const Trash2 = makeIcon('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>');
+const Settings = makeIcon('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>');
+const X = makeIcon('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
+const Flame = makeIcon('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>');
+const Trophy = makeIcon('<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>');
+const Dumbbell = makeIcon('<path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"/>');
+const TimerReset = makeIcon('<path d="M10 2h4"/><path d="M12 14v-4"/><path d="M4 13a8 8 0 0 1 8-7 8 8 0 1 1-5.3 14L4 17.6"/><path d="M9 17H4v5"/>');
+const Zap = makeIcon('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>');
+const ChevronLeft = makeIcon('<path d="m15 18-6-6 6-6"/>');
+const ChevronRight = makeIcon('<path d="m9 18 6-6-6-6"/>');
+
+// ---------- helpers ----------
+const keyOf = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const todayKey = () => keyOf(new Date());
+const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"];
+
+// 月曜はじまりの週の日付キー
+const weekKeys = (offsetWeeks = 0) => {
+  const d = new Date();
+  const day = (d.getDay() + 6) % 7; // 月=0 … 日=6
+  d.setDate(d.getDate() - day + offsetWeeks * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() + i);
+    return keyOf(x);
+  });
+};
+
+const CONFIG_KEY = "pushup-config-v1";
+const LOG_KEY = "pushup-log-v1";
+const DEFAULT_SETS = [40, 30, 30];
+const DEFAULT_WEEK_GOAL = 5;
+const DEFAULT_REP_GOAL = 500;
+const REST_SECONDS = 90;
+
+const SHOUTS = [
+  "🔥 いいぞ!!その調子だ!!",
+  "💥 効いてる効いてる!!最高だ!!",
+  "⚡ まだまだいける!!限界の先へ!!",
+  "🚀 昨日の自分、置き去りだ!!",
+  "👊 その一回が未来を変える!!",
+  "🦾 鬼パンプ!!キレてる!!",
+];
+
+// 黒×赤 HARDCORE パレット
+const C = {
+  bg: "#0C0B0A",
+  card: "#171514",
+  card2: "#1E1B19",
+  border: "#2B2825",
+  text: "#F2EFE9",
+  muted: "#9A938A",
+  dim: "#55504A",
+  red: "#E5352B",
+  redDark: "#B5251D",
+  gold: "#F5C24B",
+};
+const hazard = `repeating-linear-gradient(45deg, ${C.red} 0 10px, #14100F 10px 20px)`;
+
+function App() {
+  const [sets, setSets] = useState(DEFAULT_SETS);
+  const [weekGoal, setWeekGoal] = useState(DEFAULT_WEEK_GOAL);
+  const [repGoal, setRepGoal] = useState(DEFAULT_REP_GOAL);
+  const [log, setLog] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [rest, setRest] = useState(0);
+  const [shout, setShout] = useState("");
+  const [newSet, setNewSet] = useState("");
+  const [repGoalInput, setRepGoalInput] = useState(String(DEFAULT_REP_GOAL));
+  const [viewDate, setViewDate] = useState(() => new Date());
+  const timerRef = useRef(null);
+  const shoutRef = useRef(null);
+
+  const tKey = todayKey();
+  const today = log[tKey] || { done: sets.map(() => false) };
+  const doneArr = sets.map((_, i) => !!today.done?.[i]);
+
+  // ---------- load ----------
+  useEffect(() => {
+    (async () => {
+      try {
+        const c = await window.storage.get(CONFIG_KEY);
+        if (c && c.value) {
+          const p = JSON.parse(c.value);
+          if (p.sets?.length) setSets(p.sets);
+          if (p.weekGoal) setWeekGoal(p.weekGoal);
+          if (p.repGoal) { setRepGoal(p.repGoal); setRepGoalInput(String(p.repGoal)); }
+        }
+      } catch (e) { /* まだ保存なし */ }
+      try {
+        const l = await window.storage.get(LOG_KEY);
+        if (l && l.value) setLog(JSON.parse(l.value));
+      } catch (e) { /* まだ保存なし */ }
+      setLoaded(true);
+    })();
+  }, []);
+
+  // ---------- save ----------
+  const saveConfig = useCallback(async (s, g, rg) => {
+    try {
+      await window.storage.set(CONFIG_KEY, JSON.stringify({ sets: s, weekGoal: g, repGoal: rg }));
+    } catch (e) { console.error("設定の保存に失敗", e); }
+  }, []);
+  const saveLog = useCallback(async (next) => {
+    try {
+      await window.storage.set(LOG_KEY, JSON.stringify(next));
+    } catch (e) { console.error("記録の保存に失敗", e); }
+  }, []);
+
+  // ---------- rest timer ----------
+  useEffect(() => {
+    if (rest <= 0) { clearInterval(timerRef.current); return; }
+    timerRef.current = setInterval(() => setRest((r) => (r <= 1 ? 0 : r - 1)), 1000);
+    return () => clearInterval(timerRef.current);
+  }, [rest > 0]);
+
+  // ---------- actions ----------
+  const fireShout = () => {
+    clearTimeout(shoutRef.current);
+    setShout(SHOUTS[Math.floor(Math.random() * SHOUTS.length)]);
+    shoutRef.current = setTimeout(() => setShout(""), 2500);
+  };
+
+  const toggleSet = (i) => {
+    const next = [...doneArr];
+    const turningOn = !next[i];
+    next[i] = turningOn;
+    const nextLog = { ...log, [tKey]: { done: next } };
+    setLog(nextLog);
+    saveLog(nextLog);
+    const allDone = next.every(Boolean);
+    if (turningOn && !allDone) { setRest(REST_SECONDS); fireShout(); }
+    if (allDone) { setRest(0); setShout(""); }
+  };
+
+  const addSet = () => {
+    const n = parseInt(newSet, 10);
+    if (!n || n <= 0) return;
+    const nextSets = [...sets, n];
+    setSets(nextSets);
+    saveConfig(nextSets, weekGoal, repGoal);
+    setNewSet("");
+  };
+  const removeSet = (i) => {
+    if (sets.length <= 1) return;
+    const nextSets = sets.filter((_, idx) => idx !== i);
+    setSets(nextSets);
+    saveConfig(nextSets, weekGoal, repGoal);
+  };
+  const changeGoal = (g) => { setWeekGoal(g); saveConfig(sets, g, repGoal); };
+  const applyRepGoal = () => {
+    const n = parseInt(repGoalInput, 10);
+    if (!n || n <= 0) return;
+    setRepGoal(n);
+    saveConfig(sets, weekGoal, n);
+  };
+
+  // カレンダーから過去日の記録を追加・修正(未来は不可)
+  const toggleDay = (key) => {
+    if (key > tKey) return;
+    const isFull = isDayComplete(key);
+    const next = { ...log };
+    if (isFull) delete next[key];
+    else next[key] = { done: sets.map(() => true) };
+    setLog(next);
+    saveLog(next);
+  };
+
+  // ---------- derived ----------
+  const dayReps = (key) => {
+    const d = log[key];
+    if (!d?.done) return 0;
+    return d.done.reduce((a, on, i) => a + (on ? (sets[i] || 0) : 0), 0);
+  };
+  const isDayComplete = (key) => {
+    const d = log[key];
+    if (!d?.done) return false;
+    const count = d.done.filter(Boolean).length;
+    return count >= (d.done.length || sets.length) && count > 0;
+  };
+
+  const total = sets.reduce((a, b) => a + b, 0);
+  const doneReps = sets.reduce((a, b, i) => a + (doneArr[i] ? b : 0), 0);
+  const doneSets = doneArr.filter(Boolean).length;
+  const todayComplete = doneSets === sets.length;
+  const progress = total ? doneReps / total : 0;
+
+  const thisWeek = weekKeys(0);
+  const todayIdx = thisWeek.indexOf(tKey);
+  const weekDone = thisWeek.filter(isDayComplete).length;
+  const weekReps = thisWeek.reduce((a, k) => a + dayReps(k), 0);
+  const daysCleared = weekDone >= weekGoal;
+  const repsCleared = weekReps >= repGoal;
+  const weekAchieved = daysCleared || repsCleared;
+
+  const weekRepsOf = (w) => weekKeys(w).reduce((a, k) => a + dayReps(k), 0);
+  const weekClearedOf = (w) =>
+    weekKeys(w).filter(isDayComplete).length >= weekGoal || weekRepsOf(w) >= repGoal;
+
+  let weekStreak = 0;
+  for (let w = 0; ; w--) {
+    if (weekClearedOf(w)) weekStreak++;
+    else if (w === 0) { /* 今週は進行中でもOK */ }
+    else break;
+    if (w < -520) break;
+  }
+
+  const pastWeeks = [-4, -3, -2, -1].map((w) => ({
+    w,
+    days: weekKeys(w).filter(isDayComplete).length,
+    reps: weekRepsOf(w),
+    ok: weekClearedOf(w),
+  }));
+
+  const totalDays = Object.keys(log).filter(isDayComplete).length;
+  const totalReps = Object.keys(log).reduce((sum, k) => sum + dayReps(k), 0);
+
+  const now = new Date();
+  const dateLabel = `${now.getMonth() + 1}.${now.getDate()} ${["SUN","MON","TUE","WED","THU","FRI","SAT"][now.getDay()]}`;
+
+  if (!loaded) {
+    return (
+      <div style={st.page}>
+        <div style={{ ...st.card, textAlign: "center", color: C.muted }}>LOADING…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={st.page}>
+      <style>{`
+        @keyframes rise { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+        @keyframes pop { 0% { transform: scale(.9);} 60% { transform: scale(1.08);} 100% { transform: scale(1);} }
+        @keyframes shoutIn { 0% { opacity:0; transform: translateY(6px) scale(.95);} 100% { opacity:1; transform:none;} }
+        @keyframes glowPulse { 0%,100% { box-shadow: 0 0 18px rgba(229,53,43,.35);} 50% { box-shadow: 0 0 34px rgba(229,53,43,.65);} }
+        button { font-family: inherit; }
+        input { font-family: inherit; }
+        input::placeholder { color: #6B655E; }
+        *:focus-visible { outline: 2px solid #E5352B; outline-offset: 2px; }
+      `}</style>
+
+      {/* hazard stripe top */}
+      <div style={st.hazardBar} />
+
+      {/* header */}
+      <header style={st.header}>
+        <div>
+          <div style={st.eyebrow}>NO PAIN, NO GAIN — 毎日100回</div>
+          <div style={st.dateText}>{dateLabel}</div>
+        </div>
+        <button aria-label="設定" onClick={() => setShowSettings(true)} style={st.iconBtn}>
+          <Settings size={20} strokeWidth={1.8} />
+        </button>
+      </header>
+
+      {/* today hero */}
+      <section style={st.hero}>
+        <div style={st.heroLabel}>
+          <Dumbbell size={14} strokeWidth={2.4} color={C.red} />
+          TODAY'S BATTLE — PUSH-UP
+        </div>
+        <div style={st.heroNum}>
+          <span style={st.heroDone}>{doneReps}</span>
+          <span style={st.heroTotal}> / {total}</span>
+        </div>
+        <div style={st.heroTrack}>
+          <div style={{ ...st.heroFill, width: `${progress * 100}%` }} />
+        </div>
+
+        <div style={st.setRow}>
+          {sets.map((n, i) => {
+            const on = doneArr[i];
+            return (
+              <button
+                key={i}
+                onClick={() => toggleSet(i)}
+                style={{
+                  ...st.setBtn,
+                  background: on ? C.red : C.card2,
+                  borderColor: on ? C.red : C.border,
+                  color: on ? "#FFF" : C.text,
+                  animation: on ? "pop .25s ease" : "none",
+                  boxShadow: on ? "0 0 16px rgba(229,53,43,.5)" : "none",
+                }}
+              >
+                <span style={{ ...st.setLabel, color: on ? "rgba(255,255,255,.8)" : C.muted }}>SET {i + 1}</span>
+                <span style={st.setReps}>{n}</span>
+                <span style={{ ...st.setUnit, color: on ? "rgba(255,255,255,.8)" : C.dim }}>REPS</span>
+                {on && <Check size={16} strokeWidth={3.5} />}
+              </button>
+            );
+          })}
+        </div>
+
+        {shout && !todayComplete && (
+          <div style={st.shoutBox}>{shout}</div>
+        )}
+
+        {rest > 0 && !todayComplete && (
+          <div style={st.restBox}>
+            <TimerReset size={16} strokeWidth={2.2} color={C.red} />
+            <span>INTERVAL {Math.floor(rest / 60)}:{String(rest % 60).padStart(2, "0")} — 次で決める!!</span>
+            <button onClick={() => setRest(0)} style={st.skipBtn}>行くぜ!!</button>
+          </div>
+        )}
+
+        {todayComplete && (
+          <div style={st.heroDoneBanner}>💪 100回制覇!!今日のお前は最強だ!!</div>
+        )}
+      </section>
+
+      {/* this week */}
+      <section style={st.card}>
+        <div style={st.cardHead}>
+          <span style={st.cardTitle}>WEEKLY MISSION</span>
+          {weekAchieved && <span style={st.clearBadge}>CLEAR!!</span>}
+        </div>
+        <p style={st.sectionHint}>
+          <b style={{ color: C.text }}>週{weekGoal}日</b> or <b style={{ color: C.text }}>合計{repGoal}回</b>、どっちか達成でクリア!休息日も戦略のうちだ。
+        </p>
+
+        <div style={st.gaugeRow}>
+          <span style={st.gaugeLabel}>DAYS</span>
+          <div style={st.gaugeTrack}>
+            <div style={{ ...st.gaugeFill, width: `${Math.min(weekDone / weekGoal, 1) * 100}%`, background: daysCleared ? C.gold : C.red }} />
+          </div>
+          <span style={{ ...st.gaugeVal, color: daysCleared ? C.gold : C.text }}>
+            {weekDone}/{weekGoal}日{daysCleared && " ✓"}
+          </span>
+        </div>
+        <div style={st.gaugeRow}>
+          <span style={st.gaugeLabel}>REPS</span>
+          <div style={st.gaugeTrack}>
+            <div style={{ ...st.gaugeFill, width: `${Math.min(weekReps / repGoal, 1) * 100}%`, background: repsCleared ? C.gold : C.red }} />
+          </div>
+          <span style={{ ...st.gaugeVal, color: repsCleared ? C.gold : C.text }}>
+            {weekReps}/{repGoal}回{repsCleared && " ✓"}
+          </span>
+        </div>
+
+        <div style={st.weekRow}>
+          {thisWeek.map((k, i) => {
+            const done = isDayComplete(k);
+            const isToday = i === todayIdx;
+            const isFuture = i > todayIdx;
+            return (
+              <div key={k} style={st.weekCol}>
+                <div
+                  style={{
+                    ...st.dayCircle,
+                    background: done ? C.red : isFuture ? "#121110" : C.card2,
+                    border: isToday ? `2px solid ${C.red}` : `2px solid ${done ? C.red : C.border}`,
+                    boxShadow: done ? "0 0 10px rgba(229,53,43,.5)" : "none",
+                  }}
+                >
+                  {done && <Check size={14} strokeWidth={3.5} color="#fff" />}
+                </div>
+                <span style={{ ...st.weekWd, color: isToday ? C.text : C.muted, fontWeight: isToday ? 800 : 500 }}>{WEEKDAYS[i]}</span>
+              </div>
+            );
+          })}
+        </div>
+        {weekAchieved && (
+          <div style={st.weekBanner}>
+            <Trophy size={16} strokeWidth={2.2} color={C.gold} />
+            今週のミッション完遂!!ここからは全部ボーナスステージだ!!
+          </div>
+        )}
+      </section>
+
+      {/* stats */}
+      <section style={st.statsRow}>
+        <div style={st.statBox}>
+          <Flame size={16} strokeWidth={2.2} color={weekStreak > 0 ? C.red : C.dim} />
+          <div style={st.statNum}>{weekStreak}</div>
+          <div style={st.statLabel}>連続クリア週</div>
+        </div>
+        <div style={st.statBox}>
+          <Zap size={16} strokeWidth={2.2} color={C.gold} />
+          <div style={st.statNum}>{totalDays}</div>
+          <div style={st.statLabel}>累計バトル日</div>
+        </div>
+        <div style={st.statBox}>
+          <Dumbbell size={16} strokeWidth={2.2} color={C.muted} />
+          <div style={st.statNum}>{totalReps.toLocaleString()}</div>
+          <div style={st.statLabel}>生涯プッシュ数</div>
+        </div>
+      </section>
+
+      {/* calendar */}
+      <section style={st.card}>
+        <div style={st.cardHead}>
+          <span style={st.cardTitle}>CALENDAR</span>
+          <div style={st.calNav}>
+            <button aria-label="前の月" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} style={st.calNavBtn}><ChevronLeft size={18} /></button>
+            <span style={st.calMonth}>{viewDate.getFullYear()}.{String(viewDate.getMonth() + 1).padStart(2, "0")}</span>
+            <button aria-label="次の月" onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} style={st.calNavBtn}><ChevronRight size={18} /></button>
+          </div>
+        </div>
+        <p style={st.sectionHint}>やった日は赤く燃える。過去の日はタップで記録の追加・修正ができるぞ。</p>
+        <div style={st.calGrid}>
+          {WEEKDAYS.map((w) => (<div key={w} style={st.calWd}>{w}</div>))}
+          {(() => {
+            const y = viewDate.getFullYear();
+            const m = viewDate.getMonth();
+            const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+            const days = new Date(y, m + 1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < offset; i++) cells.push(<div key={"b" + i} />);
+            for (let d = 1; d <= days; d++) {
+              const key = keyOf(new Date(y, m, d));
+              const reps = dayReps(key);
+              const full = isDayComplete(key);
+              const partial = reps > 0 && !full;
+              const isToday = key === tKey;
+              const isFuture = key > tKey;
+              cells.push(
+                <button
+                  key={key}
+                  onClick={() => toggleDay(key)}
+                  disabled={isFuture}
+                  style={{
+                    ...st.calDay,
+                    background: full ? C.red : partial ? "#4A211D" : C.card2,
+                    border: isToday ? `2px solid ${C.red}` : `1px solid ${full ? C.red : C.border}`,
+                    color: full ? "#FFF" : partial ? "#E89A93" : isFuture ? C.dim : C.text,
+                    boxShadow: full ? "0 0 8px rgba(229,53,43,.45)" : "none",
+                    cursor: isFuture ? "default" : "pointer",
+                    opacity: isFuture ? 0.4 : 1,
+                  }}
+                >
+                  {d}
+                </button>
+              );
+            }
+            return cells;
+          })()}
+        </div>
+        {(() => {
+          const y = viewDate.getFullYear();
+          const m = viewDate.getMonth();
+          const days = new Date(y, m + 1, 0).getDate();
+          let mDays = 0, mReps = 0;
+          for (let d = 1; d <= days; d++) {
+            const key = keyOf(new Date(y, m, d));
+            if (isDayComplete(key)) mDays++;
+            mReps += dayReps(key);
+          }
+          return (
+            <div style={st.calSummary}>
+              この月の戦績: <b style={{ color: C.red }}>{mDays}日</b> ・ <b style={{ color: C.red }}>{mReps.toLocaleString()}回</b>
+            </div>
+          );
+        })()}
+        <div style={st.calLegend}>
+          <span style={{ ...st.legendDot, background: C.red }} /> 100回制覇
+          <span style={{ ...st.legendDot, background: "#4A211D", marginLeft: 12 }} /> 一部実施
+        </div>
+      </section>
+
+      {/* past weeks */}
+      <section style={st.card}>
+        <div style={st.cardTitle}>BATTLE LOG(過去4週)</div>
+        <div style={st.pastRow}>
+          {pastWeeks.map(({ w, days, reps, ok }) => (
+            <div key={w} style={st.pastCol}>
+              <div style={{ ...st.pastBar, height: 8 + Math.min(reps / Math.max(repGoal, 1), 1.2) * 52, background: ok ? C.red : "#3A3631", boxShadow: ok ? "0 0 10px rgba(229,53,43,.4)" : "none" }} />
+              <span style={st.pastDays}>{reps}回</span>
+              <span style={st.pastSub}>{days}日</span>
+              <span style={st.pastLabel}>{-w}週前</span>
+            </div>
+          ))}
+          <div style={st.pastCol}>
+            <div style={{ ...st.pastBar, height: 8 + Math.min(weekReps / Math.max(repGoal, 1), 1.2) * 52, background: weekAchieved ? C.red : "#6B3B36", boxShadow: weekAchieved ? "0 0 10px rgba(229,53,43,.4)" : "none" }} />
+            <span style={st.pastDays}>{weekReps}回</span>
+            <span style={st.pastSub}>{weekDone}日</span>
+            <span style={{ ...st.pastLabel, color: C.text, fontWeight: 800 }}>今週</span>
+          </div>
+        </div>
+      </section>
+
+      <footer style={st.footer}>限界は自分で決めるな。今日も一回、また一回。🔥</footer>
+      <div style={{ ...st.hazardBar, marginTop: 14 }} />
+
+      {/* settings */}
+      {showSettings && (
+        <div style={st.overlay} onClick={() => setShowSettings(false)}>
+          <div style={st.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={st.modalHead}>
+              <span style={st.cardTitle}>作戦変更</span>
+              <button aria-label="閉じる" onClick={() => setShowSettings(false)} style={st.iconBtn}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={st.settingSection}>セット構成(合計 {total}回)</div>
+            {sets.map((n, i) => (
+              <div key={i} style={st.editRow}>
+                <span style={st.editText}>SET {i + 1} — {n}回</span>
+                <button aria-label="削除" onClick={() => removeSet(i)} style={st.trashBtn}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <div style={st.addRow}>
+              <input
+                value={newSet}
+                onChange={(e) => setNewSet(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && addSet()}
+                placeholder="回数を入力(例: 30)"
+                inputMode="numeric"
+                style={st.input}
+              />
+              <button onClick={addSet} style={st.addBtn}><Plus size={18} /></button>
+            </div>
+
+            <div style={st.settingSection}>週のクリア条件① 日数</div>
+            <div style={st.goalRow}>
+              {[3, 4, 5, 6, 7].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => changeGoal(g)}
+                  style={{
+                    ...st.goalBtn,
+                    background: g === weekGoal ? C.red : C.card2,
+                    color: g === weekGoal ? "#fff" : C.text,
+                    borderColor: g === weekGoal ? C.red : C.border,
+                  }}
+                >
+                  {g}日
+                </button>
+              ))}
+            </div>
+
+            <div style={st.settingSection}>週のクリア条件② 合計回数</div>
+            <div style={st.addRow}>
+              <input
+                value={repGoalInput}
+                onChange={(e) => setRepGoalInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && applyRepGoal()}
+                inputMode="numeric"
+                style={st.input}
+              />
+              <button onClick={applyRepGoal} style={{ ...st.addBtn, fontSize: 13, fontWeight: 800 }}>設定</button>
+            </div>
+            <p style={st.hint}>①か②のどちらかを満たせば、その週はクリア扱いになります。</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- styles ----------
+const impact = `Impact, "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
+const sans = `"Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", -apple-system, sans-serif`;
+
+const st = {
+  page: {
+    minHeight: "100vh", background: C.bg, color: C.text, fontFamily: sans,
+    maxWidth: 480, margin: "0 auto", padding: "0 16px 40px", boxSizing: "border-box",
+  },
+  hazardBar: { height: 8, background: hazard, borderRadius: 2, margin: "0 -16px" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "18px 0 16px" },
+  eyebrow: { fontSize: 11, letterSpacing: "0.16em", color: C.red, fontWeight: 800, marginBottom: 2 },
+  dateText: { fontFamily: impact, fontSize: 26, fontWeight: 900, letterSpacing: "0.04em", fontStyle: "italic" },
+  iconBtn: { background: "transparent", border: "none", color: C.muted, cursor: "pointer", padding: 8, borderRadius: 8 },
+  hero: {
+    background: C.card,
+    border: `1px solid ${C.border}`,
+    borderTop: `3px solid ${C.red}`,
+    color: C.text, borderRadius: 14, padding: "22px 20px", marginBottom: 14,
+    animation: "glowPulse 3s ease infinite",
+  },
+  heroLabel: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, letterSpacing: "0.2em", color: C.muted, marginBottom: 8, fontWeight: 800 },
+  heroNum: { marginBottom: 10 },
+  heroDone: { fontFamily: impact, fontSize: 56, fontWeight: 900, lineHeight: 1, color: C.red, fontStyle: "italic", textShadow: "0 0 20px rgba(229,53,43,.5)" },
+  heroTotal: { fontFamily: impact, fontSize: 22, color: C.muted, fontStyle: "italic" },
+  heroTrack: { height: 10, background: "#0F0E0D", border: `1px solid ${C.border}`, borderRadius: 5, overflow: "hidden", marginBottom: 16 },
+  heroFill: { height: "100%", background: `linear-gradient(90deg, ${C.redDark}, ${C.red})`, transition: "width .3s ease" },
+  setRow: { display: "flex", gap: 8 },
+  setBtn: {
+    flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+    border: "1px solid", borderRadius: 10, padding: "14px 8px", cursor: "pointer",
+    transition: "background .15s, box-shadow .15s",
+  },
+  setLabel: { fontSize: 9, letterSpacing: "0.2em", fontWeight: 800 },
+  setReps: { fontFamily: impact, fontSize: 26, fontWeight: 900, fontStyle: "italic", lineHeight: 1.1 },
+  setUnit: { fontSize: 9, letterSpacing: "0.2em", fontWeight: 800 },
+  shoutBox: {
+    marginTop: 14, background: C.red, color: "#FFF",
+    borderRadius: 8, padding: "12px 14px", fontSize: 16, fontWeight: 900,
+    textAlign: "center", animation: "shoutIn .25s ease", fontStyle: "italic",
+    boxShadow: "0 0 20px rgba(229,53,43,.6)",
+  },
+  restBox: {
+    marginTop: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+    background: C.card2, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 14px",
+    fontSize: 13, fontWeight: 700, flexWrap: "wrap", color: C.text,
+  },
+  skipBtn: {
+    background: C.red, border: "none", color: "#FFF",
+    borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: 900, cursor: "pointer",
+  },
+  heroDoneBanner: {
+    marginTop: 14, background: C.red, color: "#FFF", borderRadius: 8,
+    padding: "14px", fontSize: 17, fontWeight: 900, textAlign: "center", fontStyle: "italic",
+    animation: "pop .3s ease", boxShadow: "0 0 24px rgba(229,53,43,.6)", letterSpacing: "0.02em",
+  },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18, marginBottom: 14 },
+  cardHead: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cardTitle: { fontFamily: impact, fontSize: 16, fontWeight: 900, letterSpacing: "0.1em", fontStyle: "italic" },
+  clearBadge: {
+    background: C.gold, color: "#141210", fontSize: 12, fontWeight: 900,
+    borderRadius: 4, padding: "4px 12px", letterSpacing: "0.1em", fontStyle: "italic",
+    boxShadow: "0 0 14px rgba(245,194,75,.4)",
+  },
+  sectionHint: { fontSize: 12, color: C.muted, margin: "8px 0 14px", lineHeight: 1.7 },
+  gaugeRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
+  gaugeLabel: { fontSize: 10, color: C.muted, width: 36, flexShrink: 0, fontWeight: 800, letterSpacing: "0.14em" },
+  gaugeTrack: { flex: 1, height: 10, background: "#0F0E0D", border: `1px solid ${C.border}`, borderRadius: 5, overflow: "hidden" },
+  gaugeFill: { height: "100%", transition: "width .3s ease" },
+  gaugeVal: { fontSize: 12, fontWeight: 800, width: 90, textAlign: "right", flexShrink: 0 },
+  weekRow: { display: "flex", justifyContent: "space-between", marginTop: 14 },
+  weekCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5 },
+  dayCircle: {
+    width: 34, height: 34, borderRadius: 8, boxSizing: "border-box",
+    display: "flex", alignItems: "center", justifyContent: "center",
+  },
+  weekWd: { fontSize: 11 },
+  weekBanner: {
+    marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+    background: "#211C12", border: `1px solid ${C.gold}`, color: C.gold, borderRadius: 8,
+    padding: "10px 14px", fontSize: 13, fontWeight: 900,
+  },
+  statsRow: { display: "flex", gap: 10, marginBottom: 14 },
+  statBox: {
+    flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+    padding: "12px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+  },
+  statNum: { fontFamily: impact, fontSize: 22, fontWeight: 900, fontStyle: "italic" },
+  statLabel: { fontSize: 10, color: C.muted, letterSpacing: "0.08em", fontWeight: 700 },
+  pastRow: { display: "flex", justifyContent: "space-around", alignItems: "flex-end", marginTop: 14, minHeight: 110 },
+  pastCol: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 2 },
+  pastBar: { width: 26, borderRadius: 4, transition: "height .3s ease" },
+  pastDays: { fontSize: 11, color: C.text, fontWeight: 800, marginTop: 4 },
+  pastSub: { fontSize: 10, color: C.muted },
+  pastLabel: { fontSize: 10, color: C.muted },
+  calNav: { display: "flex", alignItems: "center", gap: 6 },
+  calNavBtn: { background: C.card2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 6, padding: "4px 6px", cursor: "pointer", display: "flex", alignItems: "center" },
+  calMonth: { fontFamily: impact, fontSize: 15, fontWeight: 900, fontStyle: "italic", letterSpacing: "0.06em", minWidth: 74, textAlign: "center" },
+  calGrid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, marginTop: 4 },
+  calWd: { textAlign: "center", fontSize: 10, color: C.muted, fontWeight: 800, padding: "2px 0" },
+  calDay: { aspectRatio: "1", borderRadius: 8, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box", padding: 0 },
+  calSummary: { marginTop: 12, fontSize: 13, color: C.muted, textAlign: "center", fontWeight: 700 },
+  calLegend: { marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 11, color: C.muted },
+  legendDot: { width: 10, height: 10, borderRadius: 3, display: "inline-block" },
+  footer: { textAlign: "center", fontSize: 12, color: C.red, fontWeight: 800, marginTop: 8, letterSpacing: "0.06em" },
+  overlay: {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,.6)",
+    display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50,
+  },
+  modal: {
+    background: C.bg, borderTop: `3px solid ${C.red}`, width: "100%", maxWidth: 480, maxHeight: "85vh",
+    overflowY: "auto", borderRadius: "16px 16px 0 0", padding: "18px 18px 30px", boxSizing: "border-box",
+    color: C.text,
+  },
+  modalHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  settingSection: { fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, margin: "16px 0 8px" },
+  editRow: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+    background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6,
+  },
+  editText: { fontSize: 14, fontWeight: 600 },
+  trashBtn: { background: "transparent", border: "none", color: C.red, cursor: "pointer", padding: 6, flexShrink: 0 },
+  addRow: { display: "flex", gap: 8, marginTop: 4 },
+  input: {
+    flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px",
+    fontSize: 14, background: C.card2, color: C.text,
+  },
+  addBtn: {
+    background: C.red, color: "#fff", border: "none", borderRadius: 8,
+    padding: "0 14px", cursor: "pointer", display: "flex", alignItems: "center",
+  },
+  goalRow: { display: "flex", gap: 8 },
+  goalBtn: {
+    flex: 1, border: "1px solid", borderRadius: 8, padding: "10px 0",
+    fontSize: 14, fontWeight: 800, cursor: "pointer",
+  },
+  hint: { fontSize: 12, color: C.muted, margin: "12px 0 0", lineHeight: 1.7 },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
